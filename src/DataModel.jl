@@ -3277,6 +3277,7 @@ function _print_fields(io::IO, obj, fields_to_show::Vector{Symbol}; sigdigits::I
 end
 
 @reexport using .BaseParams
+@reexport using .PipeType
 Utils.@_autoexport
 
 end
