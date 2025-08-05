@@ -136,5 +136,7 @@ include("DataModel/dataframe.jl")
 include("DataModel/io.jl")
 
 @reexport using .BaseParams
+@reexport using .PipeType
+Utils.@_autoexport
 
 end # module DataModel

@@ -8,10 +8,16 @@ using Test
     end
     @info "BaseParams tests completed."
 
-    @testset "DataModel module 1/1" begin
-        include("datamodel.jl")
-    end
-    @info "DataModel tests completed."
+	@info "Running PipeType tests..."
+	@testset "PipeType module" begin
+		include("pipetype.jl")
+	end
+	@info "PipeType tests completed."
+
+	@testset "DataModel module 1/1" begin
+		include("datamodel.jl")
+	end
+	@info "DataModel tests completed."
 
     @testset "EarthProps module" begin
         include("earthprops.jl")
