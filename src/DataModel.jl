@@ -794,6 +794,10 @@ end
 include("BaseParams.jl")
 @force using .BaseParams
 
+# Submodule `PipeType`
+include("PipeType.jl")
+@force using .PipeType
+
 """
 $(TYPEDSIGNATURES)
 

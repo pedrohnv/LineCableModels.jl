@@ -47,7 +47,7 @@ using LinearAlgebra
 """
 (TYPEDSIGNATURES)
 
-Calculates the series impedance (`Z`) and shunt admittance (`Y`) per unit length of a coaxial cable compromised of a core conductor (hollow or solid), a dielectric layer surrounding the core and, optionally, a conductive sheath and second dieletric layer. Skin-effects are considered [ametani1980general](@cite).
+Calculates the series impedance (`Z`) per unit length matrix of a coaxial cable compromised of a core conductor (hollow or solid), a dielectric layer surrounding the core and, optionally, a conductive sheath and second dieletric layer. Skin-effects are considered [ametani1980general](@cite).
 
 # Arguments
 
@@ -64,46 +64,37 @@ Calculates the series impedance (`Z`) and shunt admittance (`Y`) per unit length
 - `mu_r`: array of the Relative permeability of the conductor materials \\[dimensionless\\].
     `mu_r[1]`: core conductor permeability.
     `mu_r[2]`, Optional: conductive sheath permeability.
-- `epsilon_r`: array of the Relative permittivity of the dieletric materials \\[dimensionless\\].
-    `epsilon_r[1]`: first insulation permittivity.
-    `epsilon_r[2]`, Optional: second insulation permittivity.
-- `loss_factor`, Optional: array of the loss factor (tangent) of the dielectric materials \\[dimensionless\\].
-    `loss_factor[1]`: first insulation loss factor.
-    `loss_factor[2]`, Optional: second insulation loss factor.
 
 # Returns
 
 - Series impedance matrix per unit length of the cable \\[Ω/m\\].
-- Shunt admittance matrix per unit length of the cable \\[S/m\\].
 
 # Examples
 
 ```julia
-Z, Y = (FUNCTIONNAME)(...)
-# Output: Z, Y
+Z = (FUNCTIONNAME)(...)
+# Output: Z
 ```
 
 # See also
 
 - [`calc_tubular_resistance`](@ref)
 """
-function calc_single_core_impedance_admittance(
+function calc_single_core_impedance(
     complex_frequency::Number,
     radii::AbstractVector{<:Number},
     rho::AbstractVector{<:Number},
     mu_r::AbstractVector{<:Number},
-    epsilon_r::AbstractVector{<:Number},
-    loss_factor::AbstractVector{<:Number} = [0.0, 0.0],
 )
     r = radii
     # Some sanity checks
     if length(r) == 3
-        if !(length(rho) == 1 && length(mu_r) == 1 && length(epsilon_r) == 1 && length(loss_factor) == 1)
-            throw(ArgumentError("For length(radii) == 3, rho, mu_r, epsilon_r, and loss_factor must all have length 1."))
+        if !(length(rho) == 1 && length(mu_r) == 1)
+            throw(ArgumentError("For length(radii) == 3, rho and mu_r must have length 1."))
         end
     elseif length(r) == 5
-        if !(length(rho) == 2 && length(mu_r) == 2 && length(epsilon_r) == 2 && length(loss_factor) == 2)
-            throw(ArgumentError("For length(radii) == 5, rho, mu_r, epsilon_r, and loss_factor must all have length 2."))
+        if !(length(rho) == 2 && length(mu_r) == 2)
+            throw(ArgumentError("For length(radii) == 5, rho and mu_r must have length 2."))
         end
     else
         throw(ArgumentError("It is expected the radii to have length 3 or 5."))
@@ -131,14 +122,10 @@ function calc_single_core_impedance_admittance(
     end
     z1 = jwu_2pi * mu_r[1] / w2 * num / den
     z2 = jwu_2pi * log(r[3] / r[2])  # external insulation
-    td1 = loss_factor[1] * 120 * pi^2
-    y1 = (jw * 2π + td1) * (epsilon_r[1] * ε₀) / log(r[3] / r[2])
 
     if length(r) == 3  # no sheath
         Z = zeros(Complex, (1, 1))
         Z[1, 1] = z1 + z2
-        Y = zeros(Complex, (1, 1))
-        Y[1, 1] = y1
     elseif length(r) == 5  # with conductive sheath
         eta_2 = sqrt((jw * μ₀ * mu_r[2]) / rho[2])
         w1 = eta_2 * r[3]
@@ -167,25 +154,93 @@ function calc_single_core_impedance_admittance(
         Z[1, 2] = z5 + z6 - z4
         Z[2, 1] = z5 + z6 - z4
         Z[2, 2] = z5 + z6
-
-        td2 = loss_factor[2] * 120 * pi^2
-        y2 = (jw * 2π + td2) * (epsilon_r[2] * ε₀) / log(r[5] / r[4])
-        Y = zeros(Complex, (2, 2))
-        Y[1, 1] = y1
-        Y[1, 2] = -y1
-        Y[2, 1] = -y1
-        Y[2, 2] = y1 + y2
     else
         throw(ArgumentError("It is expected the radii to have length 3 or 5."))
     end
-    return Z, Y
+    return Z
 end
 
 
 """
 (TYPEDSIGNATURES)
 
-Calculates the impedance (`Z`) and Maxwell potential coefficient (`P`) matrices for a Pipe-Type (PT) cable as a function of the metallic sheath.
+Calculates the shunt Maxwell's potential coefficient (`P`) per unit length matrix of a coaxial cable compromised of a core conductor (hollow or solid), a dielectric layer surrounding the core and, optionally, a conductive sheath and second dieletric layer. Skin-effects are considered [ametani1980general](@cite).
+
+# Arguments
+
+- `complex_frequency`: complex angular frequency `s = c + jω` \\[rad/s\\].
+- `radii`: array of the radius of each layer of the tubular conductor \\[m\\]. This must be either a length 3 or 5 array.
+    `radii[1]`: inner radius of the core, use `0` if solid conductor.
+    `radii[2]`: outer radius of the core.
+    `radii[3]`: outer radius of the first insulation.
+    `radii[4]`, Optional: outer radius of the conductive sheath.
+    `radii[5]`, Optional: outer radius of the second insulation.
+- `epsilon_r`: array of the Relative permittivity of the dieletric materials \\[dimensionless\\].
+    `epsilon_r[1]`: first insulation permittivity.
+    `epsilon_r[2]`, Optional: second insulation permittivity.
+- `loss_factor`, Optional: array of the loss factor (tangent) of the dielectric materials \\[dimensionless\\].
+    `loss_factor[1]`: first insulation loss factor.
+    `loss_factor[2]`, Optional: second insulation loss factor.
+
+# Returns
+
+- Maxwell's potential coefficient matrix per unit length of the cable \\[V/c/m\\].
+
+# Examples
+
+```julia
+P = (FUNCTIONNAME)(...)
+# Output: P
+```
+
+# See also
+
+- [`calc_tubular_resistance`](@ref)
+"""
+function calc_single_core_potential(
+    radii::AbstractVector{<:Number},
+    epsilon_r::AbstractVector{<:Number},
+    loss_factor::AbstractVector{<:Number} = [0.0, 0.0],
+)
+    r = radii
+    # Some sanity checks
+    if length(r) == 3
+        if !(length(epsilon_r) == 1 && length(loss_factor) == 1)
+            throw(ArgumentError("For length(radii) == 3, epsilon_r and loss_factor must have length 1."))
+        end
+    elseif length(r) == 5
+        if !(length(epsilon_r) == 2 && length(loss_factor) == 2)
+            throw(ArgumentError("For length(radii) == 5, epsilon_r and loss_factor must have length 2."))
+        end
+    else
+        throw(ArgumentError("It is expected the radii to have length 3 or 5."))
+    end
+
+    td1 = loss_factor[1]
+    p1 = log(r[3] / r[2]) / (2π * epsilon_r[1] * ε₀) * (1 + 1im * td1) / (1 + td1^2)
+
+    if length(r) == 3  # no sheath
+        P = zeros(Complex, (1, 1))
+        P[1, 1] = p1
+    elseif length(r) == 5  # with conductive sheath
+        td2 = loss_factor[2]
+        p2 = log(r[5] / r[4]) / (2π * epsilon_r[2] * ε₀) * (1 + 1im * td2) / (1 + td2^2)
+        P = zeros(Complex, (2, 2))
+        P[1, 1] = p1 + p2
+        P[1, 2] = p2
+        P[2, 1] = p2
+        P[2, 2] = p2
+    else
+        throw(ArgumentError("It is expected the radii to have length 3 or 5."))
+    end
+    return P
+end
+
+
+"""
+(TYPEDSIGNATURES)
+
+Calculates the impedance (`Z`) per unit length matrix for a Pipe-Type (PT) cable as a function of the metallic sheath.
 
 The cables inside the pipe are considered to be identical single-core (SC), each composed of a central conductor, internal insulation, and optionally, a shield and external insulation.
 
@@ -202,29 +257,27 @@ The cables inside the pipe are considered to be identical single-core (SC), each
     `radii_armor[1]`: inner radius of the armor.
     `radii_armor[2]`: outer radius of the armor.
     `radii_armor[3]`: outer radius of the external insulation surrounding the armor.
-- `center_distances`: array of the distances from the center of the Pipe to the center of each SC cable \\[m\\].
+- `center_distances`: array (length `Nd`) of the distances from the center of the Pipe to the center of each SC cable \\[m\\].
+- `theta`: array of the angles of each SC cable inside the Pipe \\[rad\\].
 - `rho_armor`: Electrical resistivity of the armor \\[Ω·m\\].
 - `mur_armor`: Relative magnetic permeability of the armor \\[dimensionless\\].
-- `epsr_internal`: Relative permittivity of the internal insulation layer surrounding the SC cables \\[dimensionless\\].
 
 # Returns
 
 - `Z`: Series impedance matrix \\[Ω/m\\], shape `(Nd * ncx + 1, Nd * ncx + 1)`.
-- `P`: Maxwell potential coefficient matrix \\[V/c/m\\], shape `(Nd * ncx + 1, Nd * ncx + 1)`.
 """
-function calc_pipe_internal_impedance_potential(
+function calc_pipe_internal_impedance(
     complex_frequency::Number,
     radii_single_core::AbstractVector{<:Number},
     radii_armor::AbstractVector{<:Number},
     center_distances::AbstractVector{<:Number},
+    theta::AbstractVector{<:Number},
     rho_armor::Number,
     mur_armor::Number,
-    epsr_internal::Number,
 )
     rc = radii_single_core
     ra = radii_armor
     di = center_distances
-    epsr_b = epsr_internal
     rho_a = rho_armor
     mur_a = mur_armor
     jw = complex_frequency
@@ -243,7 +296,6 @@ function calc_pipe_internal_impedance_potential(
     rp1 = ra[1]
     y1 = rp1 * sqrt((jw * μ₀ * mur_a) / rho_a)
     q = zeros(Complex, length(di), length(di))
-    theta_jk = 2π / length(di)
     Ntrunc = 26  # number of terms to truncate the infinite series
     kve_n_y1 = [besselkx(n, y1) for n in 0:Ntrunc]
     kve_n_y1_ratio = kve_n_y1[1:end-1] ./ kve_n_y1[2:end]
@@ -253,6 +305,7 @@ function calc_pipe_internal_impedance_potential(
     # impedance
     for k in eachindex(di)
         for i in eachindex(di)
+            theta_jk = theta[i] - theta[k]
             sum1 = 0.0
             sum2 = 0.0
             if k == i
@@ -290,10 +343,71 @@ function calc_pipe_internal_impedance_potential(
         end
     end
 
+    return Zpipe
+end
+
+
+"""
+(TYPEDSIGNATURES)
+
+Calculates the Maxwell potential coefficient (`P`) per unit length matrix for a Pipe-Type (PT) cable as a function of the metallic sheath.
+
+The cables inside the pipe are considered to be identical single-core (SC), each composed of a central conductor, internal insulation, and optionally, a shield and external insulation.
+
+# Arguments
+
+- `radii_single_core`: array of the radius of each layer of the SC cables \\[m\\]. This must be either a length 3 or 5 array.
+    `radii_single_core[1]`: inner radius of the core, use `0` if solid conductor.
+    `radii_single_core[2]`: outer radius of the core.
+    `radii_single_core[3]`: outer radius of the first insulation.
+    `radii_single_core[4]`, Optional: outer radius of the conductive sheath.
+    `radii_single_core[5]`, Optional: outer radius of the second insulation.
+- `radii_armor`: array of the armor radii \\[m\\]. Must have length 3.
+    `radii_armor[1]`: inner radius of the armor.
+    `radii_armor[2]`: outer radius of the armor.
+    `radii_armor[3]`: outer radius of the external insulation surrounding the armor.
+- `center_distances`: array (length `Nd`) of the distances from the center of the Pipe to the center of each SC cable \\[m\\].
+- `theta`: array of the angles of each SC cable inside the Pipe \\[rad\\].
+- `epsr_internal`: Relative permittivity of the internal insulation layer surrounding the SC cables \\[dimensionless\\].
+- `loss_factor`, Optional: array of the loss factor (tangent) of the dielectric materials \\[dimensionless\\].
+
+# Returns
+
+- `P`: Maxwell potential coefficient matrix \\[V/c/m\\], shape `(Nd * ncx + 1, Nd * ncx + 1)`.
+"""
+function calc_pipe_internal_potential(
+    radii_single_core::AbstractVector{<:Number},
+    radii_armor::AbstractVector{<:Number},
+    center_distances::AbstractVector{<:Number},
+    theta::AbstractVector{<:Number},
+    epsr_internal::Number,
+    loss_factor::Number = 0,
+)
+    rc = radii_single_core
+    ra = radii_armor
+    di = center_distances
+    epsr_b = epsr_internal
+    if length(radii_armor) != 3
+        throw(ArgumentError("It is expected the radii_armor to have length 3 or 5."))
+    end
+    # ncx: number of "active" conductors in each single-core cable
+    if length(rc) == 3
+        ncx = 1
+    elseif length(rc) == 5
+        ncx = 2
+    else
+        throw(ArgumentError("radii_single_core must have length 3 or 5"))
+    end
+    re = rc[end]
+    rp1 = ra[1]
+    Ntrunc = 26  # number of terms to truncate the infinite series
+    rp1_sq = rp1^2
+    di_sq = di .^ 2
     # potential coefficients
     qp = zeros(Complex, length(di), length(di))
     for k in eachindex(di)
         for i in eachindex(di)
+            theta_jk = theta[i] - theta[k]
             sum1 = 0.0
             if k == i
                 qp[k, i] = log((rp1 * (1 - (di[k] / rp1)^2)) / re)
@@ -306,12 +420,12 @@ function calc_pipe_internal_impedance_potential(
         end
     end
 
-    ppp = qp ./ (2π * ε₀ * epsr_b)
+    ppp = qp ./ (2π * ε₀ * epsr_b) * (1 + 1im * loss_factor) / (1 + loss_factor^2)
     auxP = zeros(Complex, size(ppp) .* ncx)
-    for k in axes(zpp, 1)
+    for k in axes(ppp, 1)
         i1 = (k - 1) * ncx + 1
         i2 = i1 + ncx - 1
-        for i in axes(zpp, 2)
+        for i in axes(ppp, 2)
             k1 = (i - 1) * ncx + 1
             k2 = k1 + ncx - 1
             auxP[i1:i2, k1:k2] .= ppp[k, i]
@@ -325,14 +439,14 @@ function calc_pipe_internal_impedance_potential(
         end
     end
 
-    return Zpipe, Ppipe
+    return Ppipe
 end
 
 
 """
 (TYPEDSIGNATURES)
 
-Calculates the impedance (`Z`) and Maxwell potential coefficient (`P`) matrices for the metallic sheath (armor) of a Pipe-Type (PT) cable considering all internal single-core (SC) cables identical to each other.
+Calculates the impedance (`Z`) per unit length matrix for the metallic sheath (armor) of a Pipe-Type (PT) cable considering all internal single-core (SC) cables identical to each other.
 
 # Arguments
 
@@ -347,24 +461,21 @@ Calculates the impedance (`Z`) and Maxwell potential coefficient (`P`) matrices 
     `radii_armor[1]`: inner radius of the armor.
     `radii_armor[2]`: outer radius of the armor.
     `radii_armor[3]`: outer radius of the external insulation surrounding the armor.
-- `center_distances`: array of the distances from the center of the Pipe to the center of each single-core cables \\[m\\].
+- `center_distances`: array (length `Nd`) of the distances from the center of the Pipe to the center of each single-core cables \\[m\\].
 - `rho_armor`: Conductivity of the armor \\[dimensionless\\].
 - `mu_r`: Relative permeability of the armor \\[dimensionless\\].
-- `epsr_external`: Relative permittivity of the external dieletric material, surrounding the armor \\[dimensionless\\].
 
 # Returns
 
 - `Z`: Series impedance matrix \\[Ω/m\\], shape `(Nd * ncx + 1, Nd * ncx + 1)`.
-- `P`: Maxwell potential coefficient matrix \\[V/c/m\\], shape `(Nd * ncx + 1, Nd * ncx + 1)`.
 """
-function calc_pipe_armor_impedance_potential(
+function calc_pipe_armor_impedance(
     complex_frequency::Number,
     radii_single_core::AbstractVector{<:Number},
     radii_armor::AbstractVector{<:Number},
     center_distances::AbstractVector{<:Number},
     rho_armor::Number,
     mur_armor::Number,
-    epsr_external::Number,
 )
     rc = radii_single_core  # only used to determine ncx
     # ncx: number of "active" conductors in each single-core cable
@@ -381,7 +492,6 @@ function calc_pipe_armor_impedance_potential(
     jw = complex_frequency
     mur_a = mur_armor
     rho_a = rho_armor
-    epsr_a = epsr_external
     rai = ra[1]
     rae = ra[2]
     ma = sqrt((jw * μ₀ * mur_a) / rho_a)
@@ -417,16 +527,68 @@ function calc_pipe_armor_impedance_potential(
     Zpipe[end, :] .= zc2
     Zpipe[:, end] .= zc2
     Zpipe[end, end] = zc3
-    pins = log(rf / rae) / (2π * ε₀ * epsr_a)
-    Ppipe = fill(pins, n, n)
-    return Zpipe, Ppipe
+    return Zpipe
 end
 
 
 """
 (TYPEDSIGNATURES)
 
-Computes the series impedance (`Z`) and shunt admittance (`Y`) per unit length of a Pipe-Type (PT) cable that has `N` identical single-core (SC) cables inside it.
+Calculates the Maxwell potential coefficient (`P`) per unit length matrix for the metallic sheath (armor) of a Pipe-Type (PT) cable considering all internal single-core (SC) cables identical to each other.
+
+# Arguments
+
+- `radii_single_core`: array of the radius of each layer of the tubular conductors \\[m\\]. This must be either a length 3 or 5 array.
+    `radii_single_core[1]`: inner radius of the core, use `0` if solid conductor.
+    `radii_single_core[2]`: outer radius of the core.
+    `radii_single_core[3]`: outer radius of the first insulation.
+    `radii_single_core[4]`, Optional: outer radius of the conductive sheath.
+    `radii_single_core[5]`, Optional: outer radius of the second insulation.
+- `radii_armor`: array of the armor radii \\[m\\]. Must have length 3.
+    `radii_armor[1]`: inner radius of the armor.
+    `radii_armor[2]`: outer radius of the armor.
+    `radii_armor[3]`: outer radius of the external insulation surrounding the armor.
+- `center_distances`: array (length `Nd`) of the distances from the center of the Pipe to the center of each single-core cables \\[m\\].
+- `epsr_external`: Relative permittivity of the external dieletric material, surrounding the armor \\[dimensionless\\].
+- `loss_factor`, Optional: array of the loss factor (tangent) of the dielectric materials \\[dimensionless\\].
+
+# Returns
+
+- `P`: Maxwell potential coefficient matrix \\[V/c/m\\], shape `(Nd * ncx + 1, Nd * ncx + 1)`.
+"""
+function calc_pipe_armor_potential(
+    radii_single_core::AbstractVector{<:Number},
+    radii_armor::AbstractVector{<:Number},
+    center_distances::AbstractVector{<:Number},
+    epsr_external::Number,
+    loss_factor::Number = 0,
+)
+    rc = radii_single_core  # only used to determine ncx
+    # ncx: number of "active" conductors in each single-core cable
+    if length(rc) == 3
+        ncx = 1
+    elseif length(rc) == 5
+        ncx = 2
+    else
+        throw(ArgumentError("radii_single_core must have length 3 or 5"))
+    end
+
+    ra = radii_armor
+    di = center_distances
+    epsr_a = epsr_external
+    rae = ra[2]
+    rf = ra[3]
+    n = length(di) * ncx + 1
+    pins = log(rf / rae) / (2π * ε₀ * epsr_a) * (1 + 1im * loss_factor) / (1 + loss_factor^2)
+    Ppipe = fill(pins, n, n)
+    return Ppipe
+end
+
+
+"""
+(TYPEDSIGNATURES)
+
+Computes the series impedance (`Z`) per unit length matrices of a Pipe-Type (PT) cable that has `N` identical single-core (SC) cables inside it.
 
 The number of SC cables is determined by the length of the `center_distances` array.
 
@@ -434,7 +596,7 @@ The SC cables may be compromise of core conductor and, optionally, a metallic sh
 
 # Arguments
 
-- `complex_frequencies`: Vector of the complex angular frequency `s = c + jω` \\[rad/s\\].
+- `complex_frequencies`: Vector (length `Nf`) of the complex angular frequency `s = c + jω` \\[rad/s\\].
 - `radii_single_core`: array of the radius of each layer of the SC cables \\[m\\]. This must be either a length 3 or 5 array.
     `radii_single_core[1]`: inner radius of the core, use `0` if solid conductor.
     `radii_single_core[2]`: outer radius of the core.
@@ -445,7 +607,8 @@ The SC cables may be compromise of core conductor and, optionally, a metallic sh
     `radii_armor[1]`: inner radius of the armor.
     `radii_armor[2]`, Optional: outer radius of the armor.
     `radii_armor[3]`: outer radius of the external insulation surrounding the armor.
-- `center_distances`: array of the distances from the center of the Pipe to the center of each single-core cables \\[m\\].
+- `center_distances`: array (length `Nd`) of the distances from the center of the Pipe to the center of each single-core cables \\[m\\].
+- `theta`: array of the angles of each SC cable inside the Pipe \\[rad\\].
 - `rho`: array of the conductivity of the conductor materials \\[dimensionless\\]. This must be either a length 2 or 3 array.
     `rho[1]`: core conductor conductivity.
     `rho[2]`, Optional: conductive sheath conductivity.
@@ -453,6 +616,92 @@ The SC cables may be compromise of core conductor and, optionally, a metallic sh
     `mu_r[1]`: core conductor permeability of the SC cables.
     `mu_r[2]`, Optional: conductive sheath permeability of the SC cables.
     `mu_r[3]`: metallic armor permeability of the PT cable.
+
+# Returns
+
+- `Z`: Series impedance matrix \\[Ω/m\\], shape `(Nd * ncx + 1, Nd * ncx + 1, Nf)`.
+
+Where ncx = 1 or 2, depending if the SC cables have a metallic sheath or not.
+"""
+function comp_pipe_impedance(
+    complex_frequencies::AbstractVector{<:Number},
+    radii_single_core::AbstractVector{<:Number},
+    radii_armor::AbstractVector{<:Number},
+    center_distances::AbstractVector{<:Number},
+    theta::AbstractVector{<:Number},
+    rho::AbstractVector{<:Number},
+    mu_r::AbstractVector{<:Number},
+)
+    rc = radii_single_core
+    # ncx: number of "active" conductors in each single-core cable
+    if length(rc) == 3
+        ncx = 1
+    elseif length(rc) == 5
+        ncx = 2
+    else
+        throw(ArgumentError("radii_single_core must have length 3 or 5"))
+    end
+    ra = radii_armor
+    di = center_distances
+    nd = length(di)
+    nc = ncx * nd + 1
+    nf = length(complex_frequencies)
+    Z = Array{Complex}(undef, nc, nc, nf)
+    for f = 1:nf
+        jw = complex_frequencies[f]
+        if length(rc) == 3 && all(x -> length(x) == 2, (rho, mu_r))
+            Zin = calc_single_core_impedance(jw, rc, rho[1], mu_r[1])
+            Zpipe_int = calc_pipe_internal_impedance(jw, rc, ra, di, theta,rho[2], mu_r[2])
+            Zpipe_ext = calc_pipe_armor_impedance(jw, rc, ra, di, rho[2], mu_r[2])
+        elseif length(rc) == 5 && all(x -> length(x) == 3, (rho, mu_r))
+            Zin = calc_single_core_impedance(jw, rc, rho[1:2], mu_r[1:2])
+            Zpipe_int = calc_pipe_internal_impedance(jw, rc, ra, di, theta, rho[3], mu_r[3])
+            Zpipe_ext = calc_pipe_armor_impedance(jw, rc, ra, di, rho[3], mu_r[3])
+        else
+            msg = "`rho, mu_r, epsilon_r, loss_factor` must be all of equal length, either 2 when `length(radii_single_core) == 3` or 3 when `length(radii_single_core) == 5`."
+            throw(ArgumentError(msg))
+        end
+
+        nn = nd * ncx + 1
+        Zint = zeros(Complex, (nn, nn))
+        for i = 1:nd
+            i1 = 2 * i - 1
+            i2 = 2 * i
+            Zint[i1:i2, i1:i2] = Zin
+        end
+        Zf = @view Z[:, :, f]
+        Zf .= Zint + Zpipe_int + Zpipe_ext
+
+        # force explicit symmetry because of float arithmetic errors
+        Zf .= (Zf + transpose(Zf)) / 2
+    end
+    return Z
+end
+
+
+"""
+(TYPEDSIGNATURES)
+
+Computes the Maxwell potential coefficient (`P`) per unit length matrix of a Pipe-Type (PT) cable that has `N` identical single-core (SC) cables inside it.
+
+The number of SC cables is determined by the length of the `center_distances` array.
+
+The SC cables may be compromise of core conductor and, optionally, a metallic sheath. In the first case, the arrays `rho, mu_r, epsilon_r, loss_factor` must all have length 2. In the second case, they must all have length 3.
+
+# Arguments
+
+- `radii_single_core`: array of the radius of each layer of the SC cables \\[m\\]. This must be either a length 3 or 5 array.
+    `radii_single_core[1]`: inner radius of the core, use `0` if solid conductor.
+    `radii_single_core[2]`: outer radius of the core.
+    `radii_single_core[3]`: outer radius of the first insulation.
+    `radii_single_core[4]`, Optional: outer radius of the conductive sheath.
+    `radii_single_core[5]`, Optional: outer radius of the second insulation.
+- `radii_armor`: array of the armor radii \\[m\\]. Must have length 3.
+    `radii_armor[1]`: inner radius of the armor.
+    `radii_armor[2]`, Optional: outer radius of the armor.
+    `radii_armor[3]`: outer radius of the external insulation surrounding the armor.
+- `center_distances`: array (length `Nd`) of the distances from the center of the Pipe to the center of each single-core cables \\[m\\].
+- `theta`: array of the angles of each SC cable inside the Pipe \\[rad\\].
 - `epsilon_r`: array of the Relative permittivity of the dieletric materials \\[dimensionless\\]. This must be either a length 2 or 3 array.
     `epsilon_r[1]`: permittivity of the first insulation of the SC cables.
     `epsilon_r[2]`, Optional: permittivity of the second insulation of the SC cables.
@@ -464,18 +713,100 @@ The SC cables may be compromise of core conductor and, optionally, a metallic sh
 
 # Returns
 
-- `Z`: Series impedance matrix \\[Ω/m\\], shape `(Nd * ncx + 1, Nd * ncx + 1)`.
 - `P`: Maxwell potential coefficient matrix \\[V/c/m\\], shape `(Nd * ncx + 1, Nd * ncx + 1)`.
 
 Where ncx = 1 or 2, depending if the SC cables have a metallic sheath or not.
 """
-function comp_pipe_impedance_admittance(
+function comp_pipe_potential(
+    radii_single_core::AbstractVector{<:Number},
+    radii_armor::AbstractVector{<:Number},
+    center_distances::AbstractVector{<:Number},
+    theta::AbstractVector{<:Number},
+    epsilon_r::AbstractVector{<:Number},
+    loss_factor::AbstractVector{<:Number},
+)
+    rc = radii_single_core
+    # ncx: number of "active" conductors in each single-core cable
+    if length(rc) == 3
+        ncx = 1
+    elseif length(rc) == 5
+        ncx = 2
+    else
+        throw(ArgumentError("radii_single_core must have length 3 or 5"))
+    end
+    ra = radii_armor
+    di = center_distances
+    nd = length(di)
+    if length(rc) == 3 && all(x -> length(x) == 2, (epsilon_r, loss_factor))
+        Pin = calc_single_core_potential(rc, epsilon_r[1], loss_factor[1])
+        Ppipe_int = calc_pipe_internal_potential(rc, ra, di, theta, epsilon_r[1])
+        Ppipe_ext = calc_pipe_armor_potential(rc, ra, di, epsilon_r[2])
+    elseif length(rc) == 5 && all(x -> length(x) == 3, (epsilon_r, loss_factor))
+        Pin = calc_single_core_potential(rc, epsilon_r[1:2], loss_factor[1:2])
+        Ppipe_int = calc_pipe_internal_potential(rc, ra, di, theta, epsilon_r[2])
+        Ppipe_ext = calc_pipe_armor_potential(rc, ra, di, epsilon_r[3])
+    else
+        msg = "`rho, mu_r, epsilon_r, loss_factor` must be all of equal length, either 2 when `length(radii_single_core) == 3` or 3 when `length(radii_single_core) == 5`."
+        throw(ArgumentError(msg))
+    end
+    pint = zeros(Complex, size(Ppipe_ext))
+    for i = 1:nd
+        i1 = 2 * i - 1
+        i2 = 2 * i
+        pint[i1:i2, i1:i2] = Pin
+    end
+    P = pint + Ppipe_int + Ppipe_ext
+    # force explicit symmetry because of float arithmetic errors
+    P = (P + transpose(P)) / 2
+    return P
+end
+
+
+"""
+(TYPEDSIGNATURES)
+
+Computes the shunt admittance (`Y`) per unit length matrices of a Pipe-Type (PT) cable that has `N` identical single-core (SC) cables inside it.
+
+The number of SC cables is determined by the length of the `center_distances` array.
+
+The SC cables may be compromise of core conductor and, optionally, a metallic sheath. In the first case, the arrays `rho, mu_r, epsilon_r, loss_factor` must all have length 2. In the second case, they must all have length 3.
+
+# Arguments
+
+- `complex_frequencies`: Vector (length `Nf`) of the complex angular frequency `s = c + jω` \\[rad/s\\].
+- `radii_single_core`: array of the radius of each layer of the SC cables \\[m\\]. This must be either a length 3 or 5 array.
+    `radii_single_core[1]`: inner radius of the core, use `0` if solid conductor.
+    `radii_single_core[2]`: outer radius of the core.
+    `radii_single_core[3]`: outer radius of the first insulation.
+    `radii_single_core[4]`, Optional: outer radius of the conductive sheath.
+    `radii_single_core[5]`, Optional: outer radius of the second insulation.
+- `radii_armor`: array of the armor radii \\[m\\]. Must have length 3.
+    `radii_armor[1]`: inner radius of the armor.
+    `radii_armor[2]`, Optional: outer radius of the armor.
+    `radii_armor[3]`: outer radius of the external insulation surrounding the armor.
+- `center_distances`: array (length `Nd`) of the distances from the center of the Pipe to the center of each single-core cables \\[m\\].
+- `theta`: array of the angles of each SC cable inside the Pipe \\[rad\\].
+- `epsilon_r`: array of the Relative permittivity of the dieletric materials \\[dimensionless\\]. This must be either a length 2 or 3 array.
+    `epsilon_r[1]`: permittivity of the first insulation of the SC cables.
+    `epsilon_r[2]`, Optional: permittivity of the second insulation of the SC cables.
+    `epsilon_r[3]`: permittivity of the outer insulation of the PT cable, surrounding the armor.
+- `loss_factor`, Optional: array of the loss factor (tangent) of the dielectric materials \\[dimensionless\\]. This must be either a length 2 or 3 array.
+    `loss_factor[1]`: loss factor of the first insulation of the SC cables.
+    `loss_factor[2]`, Optional: loss factor of the second insulation of the SC cables.
+    `loss_factor[3]`: loss_factor of the outer insulation of the PT cable, surrounding the armor (unused for now).
+
+# Returns
+
+- `Y`: Shunt admittance matrix per unit length of the cable \\[S/m\\], shape `(Nd * ncx + 1, Nd * ncx + 1, Nf)`.
+
+Where ncx = 1 or 2, depending if the SC cables have a metallic sheath or not.
+"""
+function comp_pipe_admittance(
     complex_frequencies::AbstractVector{<:Number},
     radii_single_core::AbstractVector{<:Number},
     radii_armor::AbstractVector{<:Number},
     center_distances::AbstractVector{<:Number},
-    rho::AbstractVector{<:Number},
-    mu_r::AbstractVector{<:Number},
+    theta::AbstractVector{<:Number},
     epsilon_r::AbstractVector{<:Number},
     loss_factor::AbstractVector{<:Number},
 )
@@ -493,60 +824,27 @@ function comp_pipe_impedance_admittance(
     nd = length(di)
     nc = ncx * nd + 1
     nf = length(complex_frequencies)
-    Z = Array{Complex}(undef, nc, nc, nf)
-    Y = similar(Z)
+    P = comp_pipe_potential(rc, ra, di, theta, epsilon_r, loss_factor)
+    inv_P = inv(P)
+    # force explicit symmetry because of float arithmetic errors
+    inv_P = (inv_P + transpose(inv_P )) / 2
+    Y = Array{Complex}(undef, nc, nc, nf)
     for f = 1:nf
-        jw = complex_frequencies[f]
-        if length(rc) == 3 && all(x -> length(x) == 2, (rho, mu_r, epsilon_r, loss_factor))
-            Zin, Yin = calc_single_core_impedance_admittance(jw, rc, rho[1], mu_r[1], epsilon_r[1], loss_factor[1])
-            Zpipe_int, Ppipe_int = calc_pipe_internal_impedance_potential(jw, rc, ra, di, rho[2], mu_r[2], epsilon_r[1])
-            Zpipe_ext, Ppipe_ext = calc_pipe_armor_impedance_potential(jw, rc, ra, di, rho[2], mu_r[2], epsilon_r[2])
-        elseif length(rc) == 5 && all(x -> length(x) == 3, (rho, mu_r, epsilon_r, loss_factor))
-            Zin, Yin = calc_single_core_impedance_admittance(jw, rc, rho[1:2], mu_r[1:2], epsilon_r[1:2], loss_factor[1:2])
-            Zpipe_int, Ppipe_int = calc_pipe_internal_impedance_potential(jw, rc, ra, di, rho[3], mu_r[3], epsilon_r[2])
-            Zpipe_ext, Ppipe_ext = calc_pipe_armor_impedance_potential(jw, rc, ra, di, rho[3], mu_r[3], epsilon_r[3])
-        else
-            msg = "`rho, mu_r, epsilon_r, loss_factor` must be all of equal length, either 2 when `length(radii_single_core) == 3` or 3 when `length(radii_single_core) == 5`."
-            throw(ArgumentError(msg))
-        end
-
-        nn = nd * ncx + 1
-        Zint = zeros(Complex, (nn, nn))
-        for i = 1:nd
-            i1 = 2 * i - 1
-            i2 = 2 * i
-            Zint[i1:i2, i1:i2] = Zin
-        end
-        Zf = @view Z[:, :, f]
-        Zf .= Zint + Zpipe_int + Zpipe_ext
-
-        pin = inv(Yin) * (jw)
-        pint = zeros(Complex, size(Ppipe_ext))
-        for i = 1:nd
-            i1 = 2 * i - 1
-            i2 = 2 * i
-            pint[i1:i2, i1:i2] = pin
-        end
-        Yf = @view Y[:, :, f]
-        Yf .= jw * inv(pint + Ppipe_int + Ppipe_ext)
-        # TODO how do we include the loss factor in the PT formulas?
-
-        # force explicit symmetry because of float arithmetic errors
-        Zf .= (Zf + transpose(Zf)) / 2
-        Yf .= (Yf + transpose(Yf)) / 2
+        Y[:, :, f] .= complex_frequencies[f] * inv_P
     end
-    return Z, Y
+    return Y
 end
+
+
+# ==============================================================================
+# Other utility functions for transmission lines
+# ==============================================================================
 
 
 """
 (TYPEDSIGNATURES)
 
-Computes the series impedance (`Z`) and shunt admittance (`Y`) per unit length of a Pipe-Type (PT) cable that has `N` identical single-core (SC) cables inside it.
-
-The number of SC cables is determined by the length of the `center_distances` array.
-
-The SC cables may be compromise of core conductor and, optionally, a metallic sheath. In the first case, the arrays `rho, mu_r, epsilon_r, loss_factor` must all have length 2. In the second case, they must all have length 3.
+Computes the equivalent nodal admittance matrix of a transmission line from its per unit length series impedance (`Z`) and shunt admittance (`Y`) matrices.
 
 # Arguments
 
@@ -577,10 +875,6 @@ function comp_equivalent_nodal_admittance(
     return yn
 end
 
-
-# ==============================================================================
-# Other utility functions for transmission lines
-# ==============================================================================
 
 """
 (TYPEDSIGNATURES)
@@ -734,7 +1028,7 @@ v_1 = v_0 / \\exp(a)
 
 # Notes
 
-The relation between Neper and decibels is: `1 dB ≈ 0.11512925464970229 Np`.
+The relation between Neper and decibels is: `1 dB = log(10) / 20 Np`.
 """
 function calc_propagation_modes(
     zc::AbstractArray{<:Number, 3},
@@ -749,12 +1043,13 @@ function calc_propagation_modes(
     propagation = zeros(Complex, Nc, nf)
     velocity = zeros(Nc, nf)
     attenuation = similar(velocity)
+    Np_to_db = log(10) / 20  # conversion factor from Neper to dB
     for k = 1:nf
         YZ = yc[:, :, k] * zc[:, :, k]
         evals, evecs = calc_eigen_NR(YZ, evecs, evals, 1e-6, 20000)
         propagation[:, k] = sqrt.(evals)
         velocity[:, k] = 1e-6 .* imag(complex_frequencies[k]) ./ imag.(propagation[:, k])
-        attenuation[:, k] = real.(propagation[:, k]) ./ 0.11512925464970229
+        attenuation[:, k] = real.(propagation[:, k]) * Np_to_db
     end
     return transpose.((propagation, velocity, attenuation))
 end
