@@ -1,0 +1,65 @@
+{
+    "__julia_type__": "LineCableModels.DataModel.CablesLibrary",
+    "cable_designs": {
+        "tutorial_mutual_cond": {
+            "cable_id": "tutorial_mutual_cond",
+            "nominal_data": {
+                "U": 0,
+                "screen_cross_section": 0,
+                "capacitance": 0,
+                "__julia_type__": "LineCableModels.DataModel.NominalData",
+                "U0": 0,
+                "conductor_cross_section": 0,
+                "armor_cross_section": null,
+                "resistance": 0,
+                "inductance": 0,
+                "designation_code": "teste_mutual"
+            },
+            "__julia_type__": "LineCableModels.DataModel.CableDesign",
+            "components": [
+                {
+                    "insulator_group": {
+                        "__julia_type__": "LineCableModels.DataModel.InsulatorGroup",
+                        "layers": [
+                            {
+                                "material_props": {
+                                    "T0": 20,
+                                    "alpha": 0,
+                                    "__julia_type__": "LineCableModels.Materials.Material",
+                                    "eps_r": 4,
+                                    "mu_r": 1,
+                                    "rho": 10000000000000000
+                                },
+                                "radius_in": 0.0196,
+                                "__julia_type__": "LineCableModels.DataModel.Insulator",
+                                "radius_ext": 0.0425,
+                                "temperature": 20
+                            }
+                        ]
+                    },
+                    "__julia_type__": "LineCableModels.DataModel.CableComponent",
+                    "id": "core",
+                    "conductor_group": {
+                        "__julia_type__": "LineCableModels.DataModel.ConductorGroup",
+                        "layers": [
+                            {
+                                "material_props": {
+                                    "T0": 20,
+                                    "alpha": 0.00429,
+                                    "__julia_type__": "LineCableModels.Materials.Material",
+                                    "eps_r": 1,
+                                    "mu_r": 1,
+                                    "rho": 2.124e-8
+                                },
+                                "radius_in": 0,
+                                "__julia_type__": "LineCableModels.DataModel.Tubular",
+                                "radius_ext": 0.0196,
+                                "temperature": 20
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+}
