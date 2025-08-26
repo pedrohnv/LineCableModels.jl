@@ -49,3 +49,5 @@ sprint
 .github/*.md
 .github/instructions
 .github/prompts
+examples/*.json
+examples/*.pscx

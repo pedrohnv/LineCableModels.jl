@@ -261,5 +261,5 @@ function _resolve_getdp_path(opts::NamedTuple)
     if isfile(fallback_path)
         return fallback_path
     end
-    error("GetDP executable not found.")
+    Base.error("GetDP executable not found.")
 end

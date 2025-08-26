@@ -14,13 +14,28 @@ The [`PipeType`](@ref) submodule provides functions for determining the longitud
 
 # Dependencies
 
-(IMPORTS)
+$(IMPORTS)
 
 # Exports
 
-(EXPORTS)
+$(EXPORTS)
 """
 module PipeType
+
+# Export public API
+export calc_single_core_impedance,
+       calc_single_core_potential,
+       calc_pipe_internal_impedance,
+       calc_pipe_internal_potential,
+       calc_pipe_armor_impedance,
+       calc_pipe_armor_potential,
+       comp_pipe_impedance,
+       comp_pipe_potential,
+       comp_pipe_admittance,
+       comp_equivalent_nodal_admittance,
+       calc_eigen_NR,
+       calc_eigen_rot,
+       calc_propagation_modes
 
 # Load common dependencies
 include("CommonDeps.jl")
@@ -45,7 +60,7 @@ using LinearAlgebra
 # FIXME there is no sanity check if the `center_distances` is consistent with the given radii. If the cables overlap, the results will be nonsensical without throwing an error (silent bug).
 
 """
-(TYPEDSIGNATURES)
+$(TYPEDSIGNATURES)
 
 Calculates the series impedance (`Z`) per unit length matrix of a coaxial cable compromised of a core conductor (hollow or solid), a dielectric layer surrounding the core and, optionally, a conductive sheath and second dieletric layer. Skin-effects are considered [ametani1980general](@cite).
 
@@ -162,7 +177,7 @@ end
 
 
 """
-(TYPEDSIGNATURES)
+$(TYPEDSIGNATURES)
 
 Calculates the shunt Maxwell's potential coefficient (`P`) per unit length matrix of a coaxial cable compromised of a core conductor (hollow or solid), a dielectric layer surrounding the core and, optionally, a conductive sheath and second dieletric layer. Skin-effects are considered [ametani1980general](@cite).
 
@@ -238,7 +253,7 @@ end
 
 
 """
-(TYPEDSIGNATURES)
+$(TYPEDSIGNATURES)
 
 Calculates the impedance (`Z`) per unit length matrix for a Pipe-Type (PT) cable as a function of the metallic sheath.
 
@@ -348,7 +363,7 @@ end
 
 
 """
-(TYPEDSIGNATURES)
+$(TYPEDSIGNATURES)
 
 Calculates the Maxwell potential coefficient (`P`) per unit length matrix for a Pipe-Type (PT) cable as a function of the metallic sheath.
 
@@ -444,7 +459,7 @@ end
 
 
 """
-(TYPEDSIGNATURES)
+$(TYPEDSIGNATURES)
 
 Calculates the impedance (`Z`) per unit length matrix for the metallic sheath (armor) of a Pipe-Type (PT) cable considering all internal single-core (SC) cables identical to each other.
 
@@ -532,7 +547,7 @@ end
 
 
 """
-(TYPEDSIGNATURES)
+$(TYPEDSIGNATURES)
 
 Calculates the Maxwell potential coefficient (`P`) per unit length matrix for the metallic sheath (armor) of a Pipe-Type (PT) cable considering all internal single-core (SC) cables identical to each other.
 
@@ -586,7 +601,7 @@ end
 
 
 """
-(TYPEDSIGNATURES)
+$(TYPEDSIGNATURES)
 
 Computes the series impedance (`Z`) per unit length matrices of a Pipe-Type (PT) cable that has `N` identical single-core (SC) cables inside it.
 
@@ -680,7 +695,7 @@ end
 
 
 """
-(TYPEDSIGNATURES)
+$(TYPEDSIGNATURES)
 
 Computes the Maxwell potential coefficient (`P`) per unit length matrix of a Pipe-Type (PT) cable that has `N` identical single-core (SC) cables inside it.
 
@@ -763,7 +778,7 @@ end
 
 
 """
-(TYPEDSIGNATURES)
+$(TYPEDSIGNATURES)
 
 Computes the shunt admittance (`Y`) per unit length matrices of a Pipe-Type (PT) cable that has `N` identical single-core (SC) cables inside it.
 
@@ -842,7 +857,7 @@ end
 
 
 """
-(TYPEDSIGNATURES)
+$(TYPEDSIGNATURES)
 
 Computes the equivalent nodal admittance matrix of a transmission line from its per unit length series impedance (`Z`) and shunt admittance (`Y`) matrices.
 
@@ -877,7 +892,7 @@ end
 
 
 """
-(TYPEDSIGNATURES)
+$(TYPEDSIGNATURES)
 
 Eliminates eigenvector crossings using the Newton-Raphson method.
 
@@ -941,7 +956,7 @@ end
 
 
 """
-(TYPEDSIGNATURES)
+$(TYPEDSIGNATURES)
 
 Rotates the eigenvector matrix to minimize the imaginary part.  
 This function complements the Newton-Raphson method.
@@ -1001,7 +1016,7 @@ end
 
 
 """
-(TYPEDSIGNATURES)
+$(TYPEDSIGNATURES)
 
 Calculates the propagation velocity and attenuation of the propagation modes.
 
@@ -1053,7 +1068,5 @@ function calc_propagation_modes(
     end
     return transpose.((propagation, velocity, attenuation))
 end
-
-Utils.@_autoexport
 
 end
