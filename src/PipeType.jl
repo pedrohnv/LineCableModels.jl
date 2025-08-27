@@ -59,6 +59,8 @@ using LinearAlgebra
 
 # FIXME there is no sanity check if the `center_distances` is consistent with the given radii. If the cables overlap, the results will be nonsensical without throwing an error (silent bug).
 
+# TODO extract equivalent parameters inside the functions, passing the cable_system as an argument
+
 """
 $(TYPEDSIGNATURES)
 
@@ -599,6 +601,8 @@ function calc_pipe_armor_potential(
     return Ppipe
 end
 
+
+# TODO change comp_pipe_impedance et al. functions to one that does NOT assume identical cores inside the pipe, using a cable_system instead.
 
 """
 $(TYPEDSIGNATURES)
