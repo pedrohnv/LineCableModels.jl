@@ -6,13 +6,26 @@ This tutorial calculates the series impedance and shunt admittance of the cable 
 
 using LineCableModels
 using Plots
+using Printf
+
+materials = MaterialsLibrary()  # We will need this for the FEM calculations
+
+copper = Material(1.835e-8, 1.0, 0.999994, 20.0, 0.00393)
+add!(materials, "copper1", copper)
 
 steel = Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450)
-copper = Material(1.835e-8, 1.0, 0.999994, 20.0, 0.00393)
-insulator1 = Material(1e15, 3.31, 1.0, 20.0, 0.005)
-insulator2 = Material(1e15, 2.3, 1.0, 20.0, 0.005)
-insulator3 = Material(1e15, 10.0, 1.0, 20.0, 0.005)
+add!(materials, "steel", steel)
 
+insulator1 = Material(1e15, 3.31, 1.0, 20.0, 0.005)
+add!(materials, "insulator1", insulator1)
+
+insulator2 = Material(1e15, 2.3, 1.0, 20.0, 0.005)
+add!(materials, "insulator2", insulator2)
+
+insulator3 = Material(1e15, 10.0, 1.0, 20.0, 0.005)
+add!(materials, "insulator3", insulator3)
+
+# Geometry
 rc = radii_single_core = [0.0, 9.6, 17.054, 18.054, 19.50] .* 1e-3
 ra = radii_armor = [48.0, 59.0, 65.0] .* 1e-3
 
@@ -61,7 +74,7 @@ add!(cable_system, pipe_design, x0, y0, Dict("pipe" => 7))
 cable_preview = preview(cable_system, zoom_factor=0.020)
 
 # Frequency range [Hz]
-nf = 100  # number of frequency points
+nf = 20  # number of frequency points
 freq = exp10.(range(0, 9, nf))  # logspace
 # on 1 GHz the quasi-TEM assumption for transmission lines may no longer be valid, but we will calculate it nonetheless
 
@@ -151,3 +164,112 @@ att_plot = plot(
     xticks = exp10.(0:9),
     yticks = exp10.(-8:-1),
 )
+
+
+#=
+## FEM calculations
+=#
+fullfile(filename) = joinpath(@__DIR__, filename); #hide
+setup_logging!(0); #hide
+
+f = 1e-3 # Near DC frequency for the analysis
+earth_params = EarthModel(freq, 1e15, 1.0, 1.0)
+
+# Define a LineParametersProblem with the cable system and earth model
+problem = LineParametersProblem(
+    cable_system,
+    temperature=20.0,  # Operating temperature
+    earth_props=earth_params,
+    frequencies=freq,   # Frequency for the analysis
+    pipe_type=true,  # disables the overlapping check between the cables
+);
+
+# Estimate domain size based on skin depth in the earth
+domain_radius = calc_domain_size(earth_params, freq);
+
+# Define custom mesh transitions around each cable
+mesh_transition1 = MeshTransition(
+    cable_system,
+    [1],
+    r_min=0.01,
+    r_length=0.05,
+    mesh_factor_min=0.01 / (domain_radius / 5),
+    mesh_factor_max=0.25 / (domain_radius / 5),
+    n_regions=5)
+
+mesh_transition2 = MeshTransition(
+    cable_system,
+    [2],
+    r_min=0.01,
+    r_length=0.05,
+    mesh_factor_min=0.01 / (domain_radius / 5),
+    mesh_factor_max=0.25 / (domain_radius / 5),
+    n_regions=5);
+
+# Define runtime options 
+opts = (
+    force_remesh=true,                # Force remeshing
+    force_overwrite=true,             # Overwrite existing files
+    plot_field_maps=false,            # Do not compute/ plot field maps
+    mesh_only=false,                  # Preview the mesh
+    save_path=fullfile("fem_output"), # Results directory
+    keep_run_files=true,              # Archive files after each run
+    verbosity=0,                      # Verbosity
+);
+
+# Define the FEM formulation with the specified parameters
+formulation = FormulationSet(:FEM,
+    impedance=Darwin(),
+    admittance=Electrodynamics(),
+    domain_radius=domain_radius,
+    domain_radius_inf=domain_radius * 1.25,
+    elements_per_length_conductor=1,
+    elements_per_length_insulator=2,
+    elements_per_length_semicon=1,
+    elements_per_length_interfaces=5,
+    points_per_circumference=16,
+    mesh_size_min=1e-6,
+    mesh_size_max=domain_radius / 5,
+    mesh_transitions=[mesh_transition1,
+        mesh_transition2],
+    mesh_size_default=domain_radius / 10,
+    mesh_algorithm=5,
+    mesh_max_retries=20,
+    materials=materials,
+    options=opts
+);
+
+# Run the FEM model
+@time workspace, line_params = compute!(problem, formulation);
+
+# Display primary core results
+if !opts.mesh_only
+    Z = line_params.Z[1, 1, 1]
+    Y = line_params.Y[1, 1, 1]
+    R = real(Z) * 1000
+    L = imag(Z) / (2π * f) * 1e6
+    C = imag(Y) / (2π * f) * 1e9
+    println("R = $(@sprintf("%.6g", R)) Ω/km")
+    println("L = $(@sprintf("%.6g", L)) mH/km")
+    println("C = $(@sprintf("%.6g", C)) μF/km")
+end
+
+# save to a CSV file
+open(fullfile("fem_output/pipe_type_trifoil_ZY.csv"), "w") do io
+    write(io, "freq")
+    for j in 1:7, k in 1:7
+        write(io, ",Z_$(j)_$(k)")
+    end
+    for j in 1:7, k in 1:7
+        write(io, ",Y_$(j)_$(k)")
+    end
+    for i in 1:nf
+        write(io, "\n" * string(freq[i]))
+        for j in 1:7, k in 1:7
+            write(io, "," * string(line_params.Z[j, k, i]))
+        end
+        for j in 1:7, k in 1:7
+            write(io, "," * string(line_params.Y[j, k, i]))
+        end
+    end
+end

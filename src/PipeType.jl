@@ -61,6 +61,10 @@ using LinearAlgebra
 
 # TODO extract equivalent parameters inside the functions, passing the cable_system as an argument
 
+# TODO add formulas under Notes of docstring of `calc_` functions
+
+# TODO further break down the functions into singular formulas
+
 """
 $(TYPEDSIGNATURES)
 
@@ -89,7 +93,7 @@ Calculates the series impedance (`Z`) per unit length matrix of a coaxial cable 
 # Examples
 
 ```julia
-Z = (FUNCTIONNAME)(...)
+Z = $(FUNCTIONNAME)(...)
 # Output: Z
 ```
 
@@ -206,7 +210,7 @@ Calculates the shunt Maxwell's potential coefficient (`P`) per unit length matri
 # Examples
 
 ```julia
-P = (FUNCTIONNAME)(...)
+P = $(FUNCTIONNAME)(...)
 # Output: P
 ```
 

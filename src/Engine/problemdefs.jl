@@ -26,6 +26,7 @@ struct LineParametersProblem <: ProblemDefinition
     - `temperature`: Operating temperature \\[°C\\]. Default: `T₀`.
     - `earth_props`: Earth properties model ([`EarthModel`](@ref)).
     - `frequencies`: Frequencies for analysis \\[Hz\\]. Default: [`f₀`](@ref).
+    - `pipe_type`: Boolean flag to indicate if the system is a pipe-type cable system. This disables the checking if the cables overlap. Default: `false`.
 
     # Returns
 
@@ -41,7 +42,8 @@ struct LineParametersProblem <: ProblemDefinition
         system::LineCableSystem;
         temperature::REALSCALAR=(T₀),
         earth_props::EarthModel,
-        frequencies::Vector{<:Number}=[f₀]
+        frequencies::Vector{<:Number}=[f₀],
+        pipe_type::Bool=false,
     )
 
         # 1. System structure validation
@@ -110,25 +112,27 @@ struct LineParametersProblem <: ProblemDefinition
                                                       for comp in cable.design_data.components))
                      for cable in system.cables]
 
-        for i in eachindex(positions)
-            for j in (i+1):lastindex(positions)
-                # Calculate center-to-center distance
-                dist = sqrt((positions[i][1] - positions[j][1])^2 +
-                            (positions[i][2] - positions[j][2])^2)
+        if !pipe_type
+            for i in eachindex(positions)
+                for j in (i+1):lastindex(positions)
+                    # Calculate center-to-center distance
+                    dist = sqrt((positions[i][1] - positions[j][1])^2 +
+                                (positions[i][2] - positions[j][2])^2)
 
-                # Get outermost radii for both cables
-                r_outer_i = positions[i][3]
-                r_outer_j = positions[j][3]
+                    # Get outermost radii for both cables
+                    r_outer_i = positions[i][3]
+                    r_outer_j = positions[j][3]
 
-                # Check if cables overlap
-                min_allowed_dist = r_outer_i + r_outer_j
+                    # Check if cables overlap
+                    min_allowed_dist = r_outer_i + r_outer_j
 
-                @assert dist > min_allowed_dist """
-                    Cables $i and $j overlap!
-                    Center-to-center distance: $(dist) m
-                    Minimum required distance: $(min_allowed_dist) m
-                    Cable $i outer radius: $(r_outer_i) m
-                    Cable $j outer radius: $(r_outer_j) m"""
+                    @assert dist > min_allowed_dist """
+                        Cables $i and $j overlap!
+                        Center-to-center distance: $(dist) m
+                        Minimum required distance: $(min_allowed_dist) m
+                        Cable $i outer radius: $(r_outer_i) m
+                        Cable $j outer radius: $(r_outer_j) m"""
+                end
             end
         end
 
