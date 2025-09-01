@@ -911,6 +911,7 @@ Eliminates eigenvector crossings using the Newton-Raphson method.
 - `d0`: Initial guess for the eigenvalues.
 - `tol`: Tolerance for convergence (default: 1e-9).
 - `maxiter`: Maximum number of iterations (default: 10000).
+- `verbose`, Optional: Bool (default: false). If true, prints a warning if the calculation does not converge.
 
 # Returns
 
@@ -1042,6 +1043,9 @@ v_1 = v_0 / \\exp(a)
 - `zc`: Complex array of shape (Nc, Nc, Nf). Longitudinal impedance matrix per unit length \\[Ω/m\\].
 - `yc`: Complex array of shape (Nc, Nc, Nf). Shunt admittance matrix per unit length \\[S/m\\].
 - `complex_frequencies`: Complex array of shape (Nf,). Vector of complex angular frequencies in the format `c + jω` \\[rad/s\\].
+- `tol`: Tolerance for convergence (default: 1e-9).
+- `maxiter`: Maximum number of iterations (default: 10000).
+- `verbose`, Optional: Bool (default: false). If true, prints a warning if the calculation does not converge.
 
 # Returns
 
@@ -1052,11 +1056,16 @@ v_1 = v_0 / \\exp(a)
 # Notes
 
 The relation between Neper and decibels is: `1 dB = log(10) / 20 Np`.
+
+If the distance of one frequency to the next is too large, the method may fail to converge.
 """
 function calc_propagation_modes(
     zc::AbstractArray{<:Number, 3},
     yc::AbstractArray{<:Number, 3},
     complex_frequencies::AbstractVector{<:Number},
+    tol::Number = 1e-9,
+    maxiter::Int = 10000,
+    verbose::Bool = false,
 )
     nf = length(complex_frequencies)
     Nc = size(zc, 1)
@@ -1069,7 +1078,7 @@ function calc_propagation_modes(
     Np_to_db = log(10) / 20  # conversion factor from Neper to dB
     for k = 1:nf
         YZ = yc[:, :, k] * zc[:, :, k]
-        evals, evecs = calc_eigen_NR(YZ, evecs, evals, 1e-6, 20000)
+        evals, evecs = calc_eigen_NR(YZ, evecs, evals, tol, maxiter, verbose)
         propagation[:, k] = sqrt.(evals)
         velocity[:, k] = 1e-6 .* imag(complex_frequencies[k]) ./ imag.(propagation[:, k])
         attenuation[:, k] = real.(propagation[:, k]) * Np_to_db
