@@ -47,9 +47,9 @@ pipe_cc = CableComponent("pipe", pipe_armor, pipe_sheath)
 pipe_design = CableDesign("Pipe", pipe_cc)
 
 # Cable system
-x0, y0 = 0.0, -0.10
+x0, y0 = 0.0, 0.20
 # xa, ya, xb, yb, xc, yc = trifoil_formation(x0, y0, rc[end])  # FIXME is this correct?
-di = rc[end] / cos(deg2rad(30))
+di = (rc[end] + 1e-6) / cos(deg2rad(30))
 xa = x0
 ya = y0 + di * sin(deg2rad(90))
 
@@ -68,15 +68,16 @@ add!(cable_system, jacket_design, xb, yb, Dict("core" => 3, "sheath" => 4))
 add!(cable_system, jacket_design, xc, yc, Dict("core" => 5, "sheath" => 6))
 
 # Add the pipe surrounding the three cables:
-add!(cable_system, pipe_design, x0, y0, Dict("pipe" => 7))
+#add!(cable_system, pipe_design, x0, y0, Dict("pipe" => 7))
 
 # Visualize the cross-section of the cable system:
 cable_preview = preview(cable_system, zoom_factor=0.020)
+Nc = cable_system.num_phases
 
 # Frequency range [Hz]
-nf = 20  # number of frequency points
-freq = exp10.(range(0, 9, nf))  # logspace
-# on 1 GHz the quasi-TEM assumption for transmission lines may no longer be valid, but we will calculate it nonetheless
+nf = 5  # number of frequency points
+freq = exp10.(range(1, 7, nf))  # logspace
+# on 1 GHz the quasi-TEM assumption for transmission lines are no longer valid, but we will calculate it nonetheless
 
 # The computation functions expect the angular frequency in rad/s. This allows to easily use them with numerical Laplace transforms.
 complex_frequencies = 2im * pi * freq  # jω
@@ -140,8 +141,9 @@ yplot = plot(
 
 # Modal Decomposition
 # note, velocityy and attenuation are calculated from the propagation constant.
-propagation, velocity, attenuation = calc_propagation_modes(Z, Y, complex_frequencies)
+# propagation, velocity, attenuation = calc_propagation_modes(Z, Y, complex_frequencies)
 
+#=
 vel_plot = plot(
     freq,
     velocity,
@@ -151,6 +153,8 @@ vel_plot = plot(
     xaxis = :log10,
     minorgrid = true,
     xticks = exp10.(0:9),
+    marker = :o,
+    linewidth = 0,
 )
 
 att_plot = plot(
@@ -163,8 +167,10 @@ att_plot = plot(
     minorgrid = true,
     xticks = exp10.(0:9),
     yticks = exp10.(-8:-1),
+    marker = :o,
+    linewidth = 0,
 )
-
+=#
 
 #=
 ## FEM calculations
@@ -172,8 +178,7 @@ att_plot = plot(
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
 setup_logging!(0); #hide
 
-f = 1e-3 # Near DC frequency for the analysis
-earth_params = EarthModel(freq, 1e15, 1.0, 1.0)
+earth_params = EarthModel(freq, 100.0, 5.0, 1.0)
 
 # Define a LineParametersProblem with the cable system and earth model
 problem = LineParametersProblem(
@@ -181,30 +186,12 @@ problem = LineParametersProblem(
     temperature=20.0,  # Operating temperature
     earth_props=earth_params,
     frequencies=freq,   # Frequency for the analysis
-    pipe_type=true,  # disables the overlapping check between the cables
+    pipe_type=false,  # disables the overlapping check between the cables
 );
 
 # Estimate domain size based on skin depth in the earth
-domain_radius = calc_domain_size(earth_params, freq);
-
-# Define custom mesh transitions around each cable
-mesh_transition1 = MeshTransition(
-    cable_system,
-    [1],
-    r_min=0.01,
-    r_length=0.05,
-    mesh_factor_min=0.01 / (domain_radius / 5),
-    mesh_factor_max=0.25 / (domain_radius / 5),
-    n_regions=5)
-
-mesh_transition2 = MeshTransition(
-    cable_system,
-    [2],
-    r_min=0.01,
-    r_length=0.05,
-    mesh_factor_min=0.01 / (domain_radius / 5),
-    mesh_factor_max=0.25 / (domain_radius / 5),
-    n_regions=5);
+# domain_radius = calc_domain_size(earth_params, freq);
+domain_radius = 2000.0
 
 # Define runtime options 
 opts = (
@@ -230,8 +217,6 @@ formulation = FormulationSet(:FEM,
     points_per_circumference=16,
     mesh_size_min=1e-6,
     mesh_size_max=domain_radius / 5,
-    mesh_transitions=[mesh_transition1,
-        mesh_transition2],
     mesh_size_default=domain_radius / 10,
     mesh_algorithm=5,
     mesh_max_retries=20,
@@ -241,35 +226,55 @@ formulation = FormulationSet(:FEM,
 
 # Run the FEM model
 @time workspace, line_params = compute!(problem, formulation);
-
-# Display primary core results
-if !opts.mesh_only
-    Z = line_params.Z[1, 1, 1]
-    Y = line_params.Y[1, 1, 1]
-    R = real(Z) * 1000
-    L = imag(Z) / (2π * f) * 1e6
-    C = imag(Y) / (2π * f) * 1e9
-    println("R = $(@sprintf("%.6g", R)) Ω/km")
-    println("L = $(@sprintf("%.6g", L)) mH/km")
-    println("C = $(@sprintf("%.6g", C)) μF/km")
-end
+#run(`C:\\onelab-Windows64\\gmsh.exe c:\\Users\\pedro\\OneDrive\\codigos\\LineCableModels.jl\\examples\\fem_output\\pipe_type_trifoil\\pipe_type_trifoil.msh`)
 
 # save to a CSV file
 open(fullfile("fem_output/pipe_type_trifoil_ZY.csv"), "w") do io
     write(io, "freq")
-    for j in 1:7, k in 1:7
+    for j in 1:Nc, k in 1:Nc
         write(io, ",Z_$(j)_$(k)")
     end
-    for j in 1:7, k in 1:7
+    for j in 1:Nc, k in 1:Nc
         write(io, ",Y_$(j)_$(k)")
     end
     for i in 1:nf
         write(io, "\n" * string(freq[i]))
-        for j in 1:7, k in 1:7
+        for j in 1:Nc, k in 1:Nc
             write(io, "," * string(line_params.Z[j, k, i]))
         end
-        for j in 1:7, k in 1:7
+        for j in 1:Nc, k in 1:Nc
             write(io, "," * string(line_params.Y[j, k, i]))
         end
     end
 end
+
+
+import LinearAlgebra: eigen
+zc = line_params.Z
+yc = line_params.Y
+#zc = Z
+#yc = Y
+propagation = zeros(Complex, nf, Nc)
+velocity = zeros(nf, Nc)
+attenuation = similar(velocity)
+Np_to_db = log(10) / 20  # conversion factor from Neper to dB
+for k = 1:nf
+    YZ = yc[:, :, k] * zc[:, :, k]
+    evals, evecs = eigen(YZ)
+    propagation[k, :] = sqrt.(evals)
+    velocity[k, :] = 1e-6 .* imag(complex_frequencies[k]) ./ imag.(propagation[k, :])
+    attenuation[k, :] = real.(propagation[k, :]) * Np_to_db
+end
+
+vel_plot = plot(
+    freq,
+    velocity,
+    label = "",
+    xlabel = "Frequency [Hz]",
+    ylabel = "Modal Velocities [m/μs]",
+    xaxis = :log10,
+    minorgrid = true,
+    xticks = exp10.(0:9),
+    marker = :o,
+    linewidth = 1,
+)
